@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>FireDevAI</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            'bg-darker': '#000000',
+            'bg-dark':   '#0a0a0f',
+            'surface':   '#111118',
+            accent:      '#00ff9d',
+            'accent-dark': '#00cc7a',
+            'accent-glow': 'rgba(0, 255, 157, 0.25)',
+            glass:       'rgba(20, 20, 30, 0.55)',
+          },
+          boxShadow: {
+            'glow': '0 0 30px -8px rgba(0, 255, 157, 0.35)',
+          },
+          backdropBlur: { 'xl': '16px' },
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      min-height: 100dvh;
+      background: #000;
+      color: #f0f0ff;
+      font-family: 'Inter', system-ui, sans-serif;
+      overflow: hidden;
+    }
+
+    .glass {
+      background: rgba(20,20,30,0.55);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(0,255,157,0.08);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+    }
+
+    .btn-glow {
+      background: linear-gradient(135deg, #00ff9d 0%, #00cc7a 100%);
+      box-shadow: 0 10px 25px -8px rgba(0,255,157,0.45);
+      transition: all 0.3s ease;
+    }
+
+    .btn-glow:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 16px 40px -12px rgba(0,255,157,0.6);
+    }
+
+    .message-user {
+      background: rgba(0,255,157,0.12);
+      border: 1px solid rgba(0,255,157,0.25);
+      border-radius: 1.25rem 1.25rem 0.5rem 1.25rem;
+    }
+
+    .message-assistant {
+      background: rgba(30,30,40,0.65);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 1.25rem 1.25rem 1.25rem 0.5rem;
+    }
+
+    #messages::-webkit-scrollbar { width: 6px; }
+    #messages::-webkit-scrollbar-track { background: #0a0a0f; }
+    #messages::-webkit-scrollbar-thumb { background: #00ff9d; border-radius: 3px; }
+
+    .typing-indicator {
+      display: flex;
+      gap: 8px;
+      padding: 1rem 1.5rem;
+      background: rgba(30,30,40,0.65);
+      border-radius: 1.5rem;
+      width: fit-content;
+      margin-left: 1rem;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      background: #00ff9d;
+      border-radius: 50%;
+      animation: pulse 1.4s infinite;
+    }
+
+    .dot:nth-child(2) { animation-delay: 0.2s; }
+    .dot:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(0.8); opacity: 0.5; }
+      50%      { transform: scale(1.4); opacity: 1; }
+    }
+
+    @media (max-width: 767px) {
+      #sidebar {
+        transform: translateX(-100%);
+        transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+      }
+      #sidebar.open {
+        transform: translateX(0);
+      }
+      #menu-btn {
+        transition: opacity 0.4s;
+      }
+      #sidebar.open \~ #menu-btn {
+        opacity: 0;
+        pointer-events: none;
+      }
+    }
+
+    .context-menu {
+      position: absolute;
+      background: rgba(20,20,30,0.98);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(0,255,157,0.2);
+      border-radius: 0.75rem;
+      padding: 0.5rem 0;
+      min-width: 140px;
+      z-index: 1000;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.7);
+    }
+
+    .context-menu button {
+      width: 100%;
+      text-align: left;
+      padding: 0.6rem 1.25rem;
+      transition: background 0.15s;
+    }
+
+    .context-menu button:hover {
+      background: rgba(0,255,157,0.15);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Menu Button (Hamburger) -->
+  <button id="menu-btn" class="md:hidden fixed top-5 left-5 z-50 p-3.5 bg-black/40 backdrop-blur-2xl rounded-2xl border border-white/8 shadow-glow">
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+    </svg>
+  </button>
+
+  <!-- Sidebar -->
+  <aside id="sidebar" class="w-80 bg-black/70 backdrop-blur-xl border-r border-white/5 flex flex-col h-full fixed inset-y-0 left-0 z-40 transform -translate-x-full transition-transform md:relative md:translate-x-0">
+    <div class="p-6 border-b border-white/5 flex items-center justify-between">
+      <h1 class="text-2xl font-black bg-gradient-to-r from-[#00ff9d] to-[#00cc7a] bg-clip-text text-transparent">FireDevAI</h1>
+      <button id="close-sidebar" class="md:hidden p-3 hover:bg-white/5 rounded-xl">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="p-6 border-b border-white/5 space-y-5">
+      <input id="conv-search" type="text" placeholder="Search conversations..." class="w-full bg-black/40 border border-white/10 rounded-xl px-5 py-3 text-sm focus:outline-none focus:border-[#00ff9d]/50">
+      <button id="new-conv" class="w-full py-4 btn-glow rounded-2xl font-bold">
+        + New Conversation
+      </button>
+    </div>
+
+    <div class="flex-1 overflow-y-auto px-4 py-5 space-y-2" id="conv-list"></div>
+  </aside>
+
+  <!-- Overlay -->
+  <div id="overlay" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-20 hidden md:hidden"></div>
+
+  <!-- Context Menu -->
+  <div id="context-menu" class="context-menu hidden">
+    <button id="rename-btn">Rename</button>
+    <button id="delete-btn" class="text-red">Delete</button>
+  </div>
+
+  <!-- Main Chat Area -->
+  <div class="flex-1 flex flex-col min-h-0 relative">
+    <header class="glass border-b border-white/5 px-6 py-4 flex items-center justify-between flex-shrink-0">
+      <h1 class="text-xl font-bold bg-gradient-to-r from-[#00ff9d] to-[#00cc7a] bg-clip-text text-transparent">FireDevAI</h1>
+      <button id="download" class="p-3 rounded-xl hover:bg-white/5 transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4 4m0 0l-4-4m4 4V4"/>
+        </svg>
+      </button>
+    </header>
+
+    <main id="messages" class="flex-1 p-6 overflow-y-auto">
+      <div class="max-w-4xl mx-auto space-y-6"></div>
+    </main>
+
+    <!-- Input bar at bottom -->
+    <footer class="border-t border-white/5 bg-black/60 backdrop-blur-2xl p-6 fixed bottom-0 left-0 right-0 z-10">
+      <div class="max-w-4xl mx-auto">
+        <div class="glass rounded-3xl p-5 shadow-glow">
+          <div class="flex gap-4 items-end">
+            <textarea id="prompt" rows="2" placeholder="Ask me anything..." class="flex-1 bg-transparent border-0 focus:ring-0 text-base placeholder-gray-400 resize-none outline-none"></textarea>
+            <button id="send" class="px-8 py-4 btn-glow rounded-2xl font-bold shadow-glow-strong">
+              Send
+            </button>
+          </div>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    const API_URL = "https://openrouter.ai/api/v1/chat/completions";
+    const MODEL = "cognitivecomputations/dolphin-mistral-24b-venice-edition:free";
+    const API_KEY = "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"; // ← CHANGE THIS
+
+    const SYSTEM_PROMPT = `You are FireDevAI, a helpful and creative AI built for coding, web development, and creative tasks. Be direct, friendly, and maximally useful.`;
+
+    let currentChatId = null;
+    let chats = JSON.parse(localStorage.getItem("firedevai_chats") || "{}");
+    let messages = [];
+
+    const els = {
+      sidebar: document.getElementById("sidebar"),
+      menuBtn: document.getElementById("menu-btn"),
+      closeSidebar: document.getElementById("close-sidebar"),
+      overlay: document.getElementById("overlay"),
+      convList: document.getElementById("conv-list"),
+      convSearch: document.getElementById("conv-search"),
+      newConv: document.getElementById("new-conv"),
+      messages: document.getElementById("messages").querySelector("div"),
+      prompt: document.getElementById("prompt"),
+      send: document.getElementById("send"),
+      download: document.getElementById("download"),
+      contextMenu: document.getElementById("context-menu"),
+      renameBtn: document.getElementById("rename-btn"),
+      deleteBtn: document.getElementById("delete-btn")
+    };
+
+    let longPressTimer = null;
+    let currentLongPressId = null;
+
+    // ────────────────────────────────────────────────
+    // CHAT LOGIC
+    // ────────────────────────────────────────────────
+    function newChat() {
+      const id = Date.now().toString();
+      chats[id] = { title: "New Chat", messages: [{ role: "system", content: SYSTEM_PROMPT }] };
+      localStorage.setItem("firedevai_chats", JSON.stringify(chats));
+      renderConvList();
+      loadChat(id);
+    }
+
+    function loadChat(id) {
+      currentChatId = id;
+      messages = chats[id]?.messages || [{ role: "system", content: SYSTEM_PROMPT }];
+      renderMessages();
+      renderConvList();
+    }
+
+    function addMessage(role, content) {
+      messages.push({ role, content });
+      chats[currentChatId].messages = messages;
+      localStorage.setItem("firedevai_chats", JSON.stringify(chats));
+      renderMessages();
+    }
+
+    function renderConvList(filter = "") {
+      els.convList.innerHTML = "";
+      const q = filter.toLowerCase();
+
+      Object.entries(chats).forEach(([id, chat]) => {
+        if (q && !chat.title.toLowerCase().includes(q)) return;
+
+        const div = document.createElement("div");
+        div.className = `px-6 py-4 rounded-2xl cursor-pointer transition-all ${
+          id === currentChatId ? "bg-[#1a1a2e] border-l-4 border-[#00ff9d]" : "hover:bg-white/5"
+        }`;
+        div.innerHTML = `<div class="font-medium">${chat.title}</div>`;
+        div.dataset.id = id;
+
+        // Long press
+        let timer;
+        const start = e => timer = setTimeout(() => showMenu(id, div, e), 500);
+        const stop = () => clearTimeout(timer);
+
+        div.addEventListener('mousedown', start);
+        div.addEventListener('touchstart', start, {passive:false});
+        ['mouseup','mouseleave','touchend','touchcancel'].forEach(ev => div.addEventListener(ev, stop));
+
+        div.onclick = e => {
+          if (e.defaultPrevented) return;
+          loadChat(id);
+        };
+
+        els.convList.appendChild(div);
+      });
+    }
+
+    function showMenu(id, el, e) {
+      currentLongPressId = id;
+      const r = el.getBoundingClientRect();
+      els.contextMenu.style.left = `${e.clientX || e.touches?.[0]?.clientX}px`;
+      els.contextMenu.style.top = `${e.clientY || e.touches?.[0]?.clientY}px`;
+      els.contextMenu.classList.remove("hidden");
+
+      const hide = e => {
+        if (!els.contextMenu.contains(e.target)) {
+          els.contextMenu.classList.add("hidden");
+          document.removeEventListener('click', hide);
+        }
+      };
+      setTimeout(() => document.addEventListener('click', hide), 10);
+    }
+
+    function renderMessages() {
+      els.messages.innerHTML = "";
+      messages.forEach((m, i) => {
+        if (m.role === "system") return;
+        const d = document.createElement("div");
+        d.className = `flex ${m.role === "user" ? "justify-end" : "justify-start"}`;
+        const b = document.createElement("div");
+        b.className = `max-w-3xl px-7 py-5 rounded-3xl card message-${m.role === "user" ? "user" : "assistant"}`;
+        b.innerHTML = m.content;
+        d.appendChild(b);
+        els.messages.appendChild(d);
+        if (i === messages.length - 1) els.messages.scrollTop = els.messages.scrollHeight;
+      });
+    }
+
+    async function sendMessage() {
+      const text = els.prompt.value.trim();
+      if (!text) return;
+
+      addMessage("user", text);
+      els.prompt.value = "";
+
+      const typing = document.createElement("div");
+      typing.className = "flex justify-start mb-6";
+      typing.innerHTML = `<div class="typing-indicator"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>`;
+      els.messages.appendChild(typing);
+      els.messages.scrollTop = els.messages.scrollHeight;
+
+      els.send.disabled = true;
+      els.send.textContent = "Thinking...";
+
+      try {
+        const res = await fetch(API_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${API_KEY}`
+          },
+          body: JSON.stringify({
+            model: MODEL,
+            messages,
+            temperature: 0.7,
+            max_tokens: 8192,
+            stream: true
+          })
+        });
+
+        if (!res.ok) throw new Error(await res.text());
+
+        typing.remove();
+
+        const bubbleDiv = document.createElement("div");
+        bubbleDiv.className = "flex justify-start mb-6";
+        const bubble = document.createElement("div");
+        bubble.className = "max-w-3xl px-7 py-5 rounded-3xl card message-assistant";
+        bubble.innerHTML = "";
+        bubbleDiv.appendChild(bubble);
+        els.messages.appendChild(bubbleDiv);
+        els.messages.scrollTop = els.messages.scrollHeight;
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let textSoFar = "";
+
+        while (true) {
+          const {done, value} = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value);
+          const lines = chunk.split("\n");
+
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              const data = line.slice(6);
+              if (data === "[DONE]") continue;
+              try {
+                const parsed = JSON.parse(data);
+                const delta = parsed.choices?.[0]?.delta?.content;
+                if (delta) {
+                  textSoFar += delta;
+                  bubble.innerHTML = textSoFar;
+                  els.messages.scrollTop = els.messages.scrollHeight;
+                }
+              } catch {}
+            }
+          }
+        }
+
+        addMessage("assistant", textSoFar);
+
+      } catch (err) {
+        addMessage("assistant", `<span class="text-red-400">Error: ${err.message}</span>`);
+      } finally {
+        els.send.disabled = false;
+        els.send.textContent = "Send";
+      }
+    }
+
+    // ────────────────────────────────────────────────
+    // INIT
+    // ────────────────────────────────────────────────
+    document.addEventListener("DOMContentLoaded", () => {
+      renderConvList();
+      if (!currentChatId && !Object.keys(chats).length) newChat();
+      else if (currentChatId) loadChat(currentChatId);
+
+      els.newConv.onclick = newChat;
+      els.send.onclick = sendMessage;
+      els.prompt.onkeydown = e => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          sendMessage();
+        }
+      };
+
+      els.download.onclick = () => {
+        const code = messages.filter(m => m.role === "assistant").pop()?.content;
+        if (!code) return alert("Nothing to download");
+        const blob = new Blob([code], {type:"text/html"});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url; a.download = "response.html"; a.click();
+        URL.revokeObjectURL(url);
+      };
+
+      els.menuBtn.onclick = () => {
+        els.sidebar.classList.add("open");
+        els.overlay.classList.remove("hidden");
+      };
+
+      els.closeSidebar.onclick = els.overlay.onclick = () => {
+        els.sidebar.classList.remove("open");
+        els.overlay.classList.add("hidden");
+      };
+
+      els.renameBtn.onclick = () => {
+        if (!currentLongPressId) return;
+        const chat = chats[currentLongPressId];
+        const newTitle = prompt("New chat name:", chat.title || "New Chat");
+        if (newTitle && newTitle.trim()) {
+          chat.title = newTitle.trim();
+          localStorage.setItem("firedevai_chats", JSON.stringify(chats));
+          renderConvList();
+        }
+        els.contextMenu.classList.add("hidden");
+      };
+
+      els.deleteBtn.onclick = () => {
+        if (!currentLongPressId) return;
+        if (confirm("Delete this chat?")) {
+          delete chats[currentLongPressId];
+          localStorage.setItem("firedevai_chats", JSON.stringify(chats));
+          if (currentChatId === currentLongPressId) {
+            currentChatId = null;
+            messages = [];
+            renderMessages();
+          }
+          renderConvList();
+          if (!currentChatId && Object.keys(chats).length) {
+            loadChat(Object.keys(chats)[0]);
+          }
+        }
+        els.contextMenu.classList.add("hidden");
+      };
+
+      els.convSearch.oninput = e => renderConvList(e.target.value);
+    });
+  </script>
+</body>
+</html>
