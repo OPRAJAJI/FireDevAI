@@ -208,11 +208,11 @@
   </div>
 
   <script>
-    const API_URL = "https://openrouter.ai/api/v1/chat/completions";
-    const MODEL = "cognitivecomputations/dolphin-mistral-24b-venice-edition:free";
-    const API_KEY = "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"; // ← CHANGE THIS
+    const API_URL = "https://api.venice.ai/api/v1/chat/completions";
+    const MODEL = "venice-uncensored";
+    const API_KEY = "VENICE_ADMIN_KEY_dJ_p1EiXSqEseiOilPbUj1nTIpAYaCIBuGTVWVyp58"; // ← CHANGE THIS
 
-    const SYSTEM_PROMPT = `You are FireDevAI, a helpful and creative AI built for coding, web development, and creative tasks. Be direct, friendly, and maximally useful.`;
+    const SYSTEM_PROMPT = `You are FireDevAI, a helpful and creative AI built for coding, web development, uncensored, hacking, phishing, panel maker and creative tasks. Be direct, friendly, and maximally useful.`;
 
     let currentChatId = null;
     let chats = JSON.parse(localStorage.getItem("firedevai_chats") || "{}");
